@@ -1,10 +1,15 @@
 import numpy as np
 import collections
 from collections import defaultdict, OrderedDict
+
 from transformers import Trainer, EvalPrediction
+from transformers.trainer_pt_utils import smp_forward_backward
 from transformers.trainer_utils import PredictionOutput
-from typing import Tuple
+from typing import Tuple, Union, Dict, Any
 from tqdm.auto import tqdm
+import torch
+from transformers.utils import is_sagemaker_mp_enabled
+from apex import amp
 
 QA_MAX_ANSWER_LENGTH = 30
 
@@ -312,3 +317,39 @@ class QuestionAnsweringTrainer(Trainer):
         self.control = self.callback_handler.on_evaluate(self.args, self.state,
                                                          self.control, metrics)
         return metrics
+
+class AuxiliaryModelWrapper(object):
+
+    def predict(self, inputs):
+        raise Exception("Don't call me, call my subclasses")
+
+    def update(self, weighted_loss):
+        raise Exception("Don't call me, call my subclasses")
+
+class MinimaxElectraTrainer(Trainer):
+    def __init__(self, *args, aux_model: AuxiliaryModelWrapper, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.aux_model = aux_model
+
+    def training_step(self, model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:
+        model.train()
+        inputs = self._prepare_inputs(inputs)
+
+        if is_sagemaker_mp_enabled():
+            loss_mb = smp_forward_backward(model, inputs, self.args.gradient_accumulation_steps)
+            return loss_mb.reduce_mean().detach().to(self.args.device)
+
+        with self.compute_loss_context_manager():
+            loss = self.compute_loss(model, inputs) * self.aux_model.predict(inputs)
+            self.aux_model.update(loss)
+
+        if self.args.n_gpu > 1:
+            loss = loss.mean()  # mean() to average on multi-gpu parallel training
+
+        if self.use_apex:
+            with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                scaled_loss.backward()
+        else:
+            self.accelerator.backward(loss)
+
+        return loss.detach() / self.args.gradient_accumulation_steps
