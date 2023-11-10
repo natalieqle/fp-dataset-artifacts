@@ -362,7 +362,7 @@ class MinimaxElectraTrainer(Trainer):
 
         with self.compute_loss_context_manager():
             loss = self.compute_loss(model, inputs) * self.aux_wrapper.predict(inputs)
-            self.aux_wrapper.update(loss)
+            self.aux_wrapper.update(loss.clone())
 
         if self.args.n_gpu > 1:
             loss = loss.mean()  # mean() to average on multi-gpu parallel training
