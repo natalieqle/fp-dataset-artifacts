@@ -320,11 +320,40 @@ class QuestionAnsweringTrainer(Trainer):
 
 class AuxiliaryModelWrapper(object):
 
-    def predict(self, inputs):
+    def predict(self, inputs) -> float:
         raise Exception("Don't call me, call my subclasses")
 
-    def update(self, weighted_loss):
+    def update(self, weighted_loss_clone):
         raise Exception("Don't call me, call my subclasses")
+
+class MLP(torch.nn.Module):
+    def __init__(self, num_units_hidden=100):
+        super().__init__()
+        self.seq = torch.nn.Sequential(
+            torch.nn.Linear(600, num_units_hidden),
+            torch.nn.Tanh(),
+            torch.nn.Linear(num_units_hidden, num_units_hidden),
+            torch.nn.Tanh(),
+            torch.nn.Linear(num_units_hidden, 1),
+            torch.nn.Sigmoid(),
+        )
+
+    def forward(self, X):
+        return self.seq(X)
+
+class MLPWrapper(AuxiliaryModelWrapper):
+    def __init__(self, model: MLP):
+        self.model = model
+        self.optimizer = torch.optim.Adam(self.model.parameters())
+
+    def predict(self, inputs):
+        return self.model(inputs)
+
+    def update(self, weighted_loss_clone):
+        self.model.zero_grad()
+        loss = weighted_loss_clone * -1
+        loss.backward()
+        self.optimizer.step()
 
 class MinimaxElectraTrainer(Trainer):
     def __init__(self, *args, aux_model: AuxiliaryModelWrapper, **kwargs):
