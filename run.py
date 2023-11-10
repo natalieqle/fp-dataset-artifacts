@@ -141,8 +141,6 @@ def main():
             predictions=eval_preds.predictions, references=eval_preds.label_ids)
     elif args.task == 'nli':
         trainer_class = MinimaxElectraTrainer
-        aux_model = MLP()
-        train_kwargs['aux_wrapper'] = AuxiliaryModelWrapper(aux_model)
         compute_metrics = compute_accuracy
     
 
@@ -154,6 +152,8 @@ def main():
         eval_predictions = eval_preds
         return compute_metrics(eval_preds)
 
+    aux_model = MLP()
+
     # Initialize the Trainer object with the specified arguments and the model and dataset we loaded above
     trainer = trainer_class(
         model=model,
@@ -161,7 +161,8 @@ def main():
         train_dataset=train_dataset_featurized,
         eval_dataset=eval_dataset_featurized,
         tokenizer=tokenizer,
-        compute_metrics=compute_metrics_and_store_predictions
+        compute_metrics=compute_metrics_and_store_predictions,
+        aux_wrapper=AuxiliaryModelWrapper(aux_model)
     )
     # Train and/or evaluate
     if training_args.do_train:

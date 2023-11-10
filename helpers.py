@@ -331,7 +331,11 @@ class MLP(torch.nn.Module):
         )
 
     def forward(self, X):
-        return self.seq(X)
+      print(f'length: {X.keys()}')
+      print(f'input_ids: {X["input_ids"].size()}')
+      print(f'is_fast: {X.is_fast}')
+      # print(f'input args: {X}')
+      return self.seq(X)
 
 class AuxiliaryModelWrapper:
     def __init__(self, model: MLP):
