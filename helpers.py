@@ -318,14 +318,6 @@ class QuestionAnsweringTrainer(Trainer):
                                                          self.control, metrics)
         return metrics
 
-class AuxiliaryModelWrapper(object):
-
-    def predict(self, inputs) -> float:
-        raise Exception("Don't call me, call my subclasses")
-
-    def update(self, weighted_loss_clone):
-        raise Exception("Don't call me, call my subclasses")
-
 class MLP(torch.nn.Module):
     def __init__(self, num_units_hidden=100):
         super().__init__()
@@ -341,7 +333,7 @@ class MLP(torch.nn.Module):
     def forward(self, X):
         return self.seq(X)
 
-class MLPWrapper(AuxiliaryModelWrapper):
+class AuxiliaryModelWrapper:
     def __init__(self, model: MLP):
         self.model = model
         self.optimizer = torch.optim.Adam(self.model.parameters())
@@ -356,9 +348,9 @@ class MLPWrapper(AuxiliaryModelWrapper):
         self.optimizer.step()
 
 class MinimaxElectraTrainer(Trainer):
-    def __init__(self, *args, aux_model: AuxiliaryModelWrapper, **kwargs):
+    def __init__(self, *args, aux_wrapper: AuxiliaryModelWrapper, **kwargs):
         super().__init__(*args, **kwargs)
-        self.aux_model = aux_model
+        self.aux_wrapper = aux_wrapper
 
     def training_step(self, model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:
         model.train()
@@ -369,8 +361,8 @@ class MinimaxElectraTrainer(Trainer):
             return loss_mb.reduce_mean().detach().to(self.args.device)
 
         with self.compute_loss_context_manager():
-            loss = self.compute_loss(model, inputs) * self.aux_model.predict(inputs)
-            self.aux_model.update(loss)
+            loss = self.compute_loss(model, inputs) * self.aux_wrapper.predict(inputs)
+            self.aux_wrapper.update(loss)
 
         if self.args.n_gpu > 1:
             loss = loss.mean()  # mean() to average on multi-gpu parallel training

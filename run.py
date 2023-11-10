@@ -2,7 +2,8 @@ import datasets
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, \
     AutoModelForQuestionAnswering, Trainer, TrainingArguments, HfArgumentParser
 from helpers import prepare_dataset_nli, prepare_train_dataset_qa, \
-    prepare_validation_dataset_qa, QuestionAnsweringTrainer, compute_accuracy
+    prepare_validation_dataset_qa, QuestionAnsweringTrainer, compute_accuracy, \
+    MLP, AuxiliaryModelWrapper, MinimaxElectraTrainer
 import os
 import json
 
@@ -126,6 +127,7 @@ def main():
     # Select the training configuration
     trainer_class = Trainer
     eval_kwargs = {}
+    train_kwargs = {}
     # If you want to use custom metrics, you should define your own "compute_metrics" function.
     # For an example of a valid compute_metrics function, see compute_accuracy in helpers.py.
     compute_metrics = None
@@ -138,6 +140,9 @@ def main():
         compute_metrics = lambda eval_preds: metric.compute(
             predictions=eval_preds.predictions, references=eval_preds.label_ids)
     elif args.task == 'nli':
+        trainer_class = MinimaxElectraTrainer
+        aux_model = MLP()
+        train_kwargs['aux_model'] = AuxiliaryModelWrapper(aux_model)
         compute_metrics = compute_accuracy
     
 
@@ -160,7 +165,7 @@ def main():
     )
     # Train and/or evaluate
     if training_args.do_train:
-        trainer.train()
+        trainer.train(**train_kwargs)
         trainer.save_model()
         # If you want to customize the way the loss is computed, you should subclass Trainer and override the "compute_loss"
         # method (see https://huggingface.co/transformers/_modules/transformers/trainer.html#Trainer.compute_loss).
