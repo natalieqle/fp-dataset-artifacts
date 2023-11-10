@@ -142,7 +142,7 @@ def main():
     elif args.task == 'nli':
         trainer_class = MinimaxElectraTrainer
         aux_model = MLP()
-        train_kwargs['aux_model'] = AuxiliaryModelWrapper(aux_model)
+        train_kwargs['aux_wrapper'] = AuxiliaryModelWrapper(aux_model)
         compute_metrics = compute_accuracy
     
 
