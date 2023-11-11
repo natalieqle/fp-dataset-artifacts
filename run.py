@@ -6,6 +6,7 @@ from helpers import prepare_dataset_nli, prepare_train_dataset_qa, \
     MLP, AuxiliaryModelWrapper, MinimaxElectraTrainer
 import os
 import json
+import torch
 
 NUM_PREPROCESSING_WORKERS = 2
 
@@ -152,7 +153,8 @@ def main():
         eval_predictions = eval_preds
         return compute_metrics(eval_preds)
 
-    aux_model = MLP()
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    aux_model = MLP().to(device)
 
     # Initialize the Trainer object with the specified arguments and the model and dataset we loaded above
     trainer = trainer_class(

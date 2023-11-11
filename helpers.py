@@ -319,10 +319,10 @@ class QuestionAnsweringTrainer(Trainer):
         return metrics
 
 class MLP(torch.nn.Module):
-    def __init__(self, num_units_hidden=100):
+    def __init__(self, num_units_hidden=256):
         super().__init__()
         self.seq = torch.nn.Sequential(
-            torch.nn.Linear(600, num_units_hidden),
+            torch.nn.Linear(128, num_units_hidden),
             torch.nn.Tanh(),
             torch.nn.Linear(num_units_hidden, num_units_hidden),
             torch.nn.Tanh(),
@@ -331,11 +331,14 @@ class MLP(torch.nn.Module):
         )
 
     def forward(self, X):
-      print(f'length: {X.keys()}')
-      print(f'input_ids: {X["input_ids"].size()}')
-      print(f'is_fast: {X.is_fast}')
+      # print(f'length: {X.keys()}')
+      # print(f'input_ids: {X["input_ids"].size()}')
+      # print(f'is_fast: {X.is_fast}')
       # print(f'input args: {X}')
-      return self.seq(X)
+      # print(f'tensor type: {X["input_ids"].type()}')
+      res = self.seq(X["input_ids"].float())
+      # print(f'res: {res}')
+      return res
 
 class AuxiliaryModelWrapper:
     def __init__(self, model: MLP):
@@ -346,6 +349,7 @@ class AuxiliaryModelWrapper:
         return self.model(inputs)
 
     def update(self, weighted_loss_clone):
+        print(f'weighted_loss_clone: {weighted_loss_clone}')
         self.model.zero_grad()
         loss = weighted_loss_clone * -1
         loss.backward()
@@ -384,8 +388,18 @@ class MinimaxElectraTrainer(Trainer):
         # forward pass
         outputs = model(**inputs)
         logits = outputs.get("logits")
-        loss_fct = torch.nn.CrossEntropyLoss()
+        loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
+        # print(f'labels.view(-1): {labels.view(-1)}')
+        # print(f'logits.view(-1, self.model.config.num_labels): {logits.view(-1, self.model.config.num_labels)}')
         loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
-        loss = loss * self.aux_wrapper.predict(inputs)
-        self.aux_wrapper.update(loss.clone())
+        # print(f'loss: {loss}')
+        # print(f'loss_size: {loss.size()}')
+        # aux_preds = torch.squeeze(self.aux_wrapper.predict(inputs))
+        # print(f'aux_preds_size: {aux_preds.size()}')
+        loss = loss * torch.squeeze(self.aux_wrapper.predict(inputs))
+        loss = loss.mean()
+        print(f'loss w/ weighted: {loss}')
+        print(f'loss_size w/ weighted: {loss.size()}')
+        self.aux_wrapper.update(loss.clone().detach())
+        print('returning loss!')
         return (loss, outputs) if return_outputs else loss
