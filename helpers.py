@@ -354,6 +354,17 @@ class AuxiliaryModelWrapper:
         loss = weighted_loss_clone * -1
         loss.backward()
         self.optimizer.step()
+        print('done updated aux...')
+
+    def predict_and_update(self, inputs, loss_clone):
+        print(f'loss_clone: {loss_clone}')
+        preds = self.model(inputs)
+        self.model.zero_grad()
+        loss = (preds * loss_clone).mean() * -1
+        loss.backward()
+        self.optimizer.step()
+        print('done updated aux...')
+        return preds
 
 class MinimaxElectraTrainer(Trainer):
     def __init__(self, *args, aux_wrapper: AuxiliaryModelWrapper, **kwargs):
@@ -400,6 +411,7 @@ class MinimaxElectraTrainer(Trainer):
         loss = loss.mean()
         print(f'loss w/ weighted: {loss}')
         print(f'loss_size w/ weighted: {loss.size()}')
-        self.aux_wrapper.update(loss.clone().detach())
-        print('returning loss!')
+        self.aux_wrapper.update(loss.detach().clone().requires_grad_())
+        # print(f'loss w/ weighted: {loss}')
+        # print('returning loss!')
         return (loss, outputs) if return_outputs else loss
