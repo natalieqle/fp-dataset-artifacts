@@ -358,24 +358,27 @@ class AuxiliaryModelWrapper:
         print('done updated aux...')
 
     def predict_and_update(self, inputs, loss_clone):
-        print(f'loss_clone: {loss_clone}')
+        # print(f'loss_clone: {loss_clone}')
         preds = self.model(inputs)
         self.model.zero_grad()
-        loss = (preds * loss_clone).mean() * -1
+        weights = (preds + torch.ones(preds.size()).to(preds.device))
+        loss = (weights * loss_clone).mean() * -1
+        # print('added constant...')
         loss.backward()
         self.optimizer.step()
-        print('done updated aux...')
+        # print('done updated aux...')
         self.save_model()
-        return preds.detach()
+        return weights.detach().clone()
 
     def save_model(self):
-        print('saving model...')
+        # print('saving model...')
         torch.save(self.model.state_dict(), path.join(path.dirname(path.abspath(__file__)), 'mlp.th'))
 
 class MinimaxElectraTrainer(Trainer):
-    def __init__(self, *args, aux_wrapper: AuxiliaryModelWrapper, **kwargs):
+    def __init__(self, *args, aux_wrapper: AuxiliaryModelWrapper, is_train=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.aux_wrapper = aux_wrapper
+        self.is_train = is_train
 
     # def training_step(self, model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:
     #     model.train()
@@ -413,8 +416,10 @@ class MinimaxElectraTrainer(Trainer):
         # print(f'loss_size: {loss.size()}')
         # aux_preds = torch.squeeze(self.aux_wrapper.predict(inputs))
         # print(f'aux_preds_size: {aux_preds.size()}')
-        weight = self.aux_wrapper.predict_and_update(inputs, loss.detach().clone().requires_grad_())
-        loss = loss * torch.squeeze(weight)
+        if self.is_train:
+          # print('is updating aux...')
+          weights = self.aux_wrapper.predict_and_update(inputs, loss.detach().clone()) #.requires_grad_())
+          loss = loss * torch.squeeze(weights)
         loss = loss.mean()
         # print(f'loss w/ weighted: {loss}')
         # print(f'loss_size w/ weighted: {loss.size()}')

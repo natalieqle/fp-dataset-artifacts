@@ -169,7 +169,8 @@ def main():
         eval_dataset=eval_dataset_featurized,
         tokenizer=tokenizer,
         compute_metrics=compute_metrics_and_store_predictions,
-        aux_wrapper=AuxiliaryModelWrapper(aux_model)
+        aux_wrapper=AuxiliaryModelWrapper(aux_model),
+        is_train=training_args.do_train
     )
     # Train and/or evaluate
     if training_args.do_train:
