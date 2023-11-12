@@ -48,6 +48,8 @@ def main():
                       help='Limit the number of examples to train on.')
     argp.add_argument('--max_eval_samples', type=int, default=None,
                       help='Limit the number of examples to evaluate on.')
+    argp.add_argument('--continue_training', action='store_true',
+                      help='Whether to resume MLP training from a previous run.')
 
     training_args, args = argp.parse_args_into_dataclasses()
 
@@ -128,7 +130,6 @@ def main():
     # Select the training configuration
     trainer_class = Trainer
     eval_kwargs = {}
-    train_kwargs = {}
     # If you want to use custom metrics, you should define your own "compute_metrics" function.
     # For an example of a valid compute_metrics function, see compute_accuracy in helpers.py.
     compute_metrics = None
@@ -156,6 +157,10 @@ def main():
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     aux_model = MLP().to(device)
 
+    if args.continue_training:
+      print('continuing training....')
+      aux_model.load_state_dict(torch.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mlp.th')))
+
     # Initialize the Trainer object with the specified arguments and the model and dataset we loaded above
     trainer = trainer_class(
         model=model,
@@ -168,7 +173,11 @@ def main():
     )
     # Train and/or evaluate
     if training_args.do_train:
-        trainer.train(**train_kwargs)
+        # trainer.train(resume_from_checkpoint=args.model)
+        if args.model == 'google/electra-small-discriminator':
+          trainer.train()
+        else:
+          trainer.train(resume_from_checkpoint=args.model)
         trainer.save_model()
         # If you want to customize the way the loss is computed, you should subclass Trainer and override the "compute_loss"
         # method (see https://huggingface.co/transformers/_modules/transformers/trainer.html#Trainer.compute_loss).

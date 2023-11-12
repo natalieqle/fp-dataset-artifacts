@@ -10,6 +10,7 @@ from tqdm.auto import tqdm
 import torch
 # from transformers.utils import is_sagemaker_mp_enabled
 # from apex import amp
+from os import path
 
 QA_MAX_ANSWER_LENGTH = 30
 
@@ -364,7 +365,12 @@ class AuxiliaryModelWrapper:
         loss.backward()
         self.optimizer.step()
         print('done updated aux...')
-        return preds
+        self.save_model()
+        return preds.detach()
+
+    def save_model(self):
+        print('saving model...')
+        torch.save(self.model.state_dict(), path.join(path.dirname(path.abspath(__file__)), 'mlp.th'))
 
 class MinimaxElectraTrainer(Trainer):
     def __init__(self, *args, aux_wrapper: AuxiliaryModelWrapper, **kwargs):
@@ -407,11 +413,12 @@ class MinimaxElectraTrainer(Trainer):
         # print(f'loss_size: {loss.size()}')
         # aux_preds = torch.squeeze(self.aux_wrapper.predict(inputs))
         # print(f'aux_preds_size: {aux_preds.size()}')
-        loss = loss * torch.squeeze(self.aux_wrapper.predict(inputs))
+        weight = self.aux_wrapper.predict_and_update(inputs, loss.detach().clone().requires_grad_())
+        loss = loss * torch.squeeze(weight)
         loss = loss.mean()
-        print(f'loss w/ weighted: {loss}')
-        print(f'loss_size w/ weighted: {loss.size()}')
-        self.aux_wrapper.update(loss.detach().clone().requires_grad_())
+        # print(f'loss w/ weighted: {loss}')
+        # print(f'loss_size w/ weighted: {loss.size()}')
+        # self.aux_wrapper.update(loss.detach().clone().requires_grad_())
         # print(f'loss w/ weighted: {loss}')
         # print('returning loss!')
         return (loss, outputs) if return_outputs else loss
