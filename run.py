@@ -152,7 +152,7 @@ def main():
     def compute_metrics_and_store_predictions(eval_preds):
         nonlocal eval_predictions
         eval_predictions = eval_preds
-        return compute_metrics(eval_preds)
+        return compute_metrics(eval_preds, args.dataset)
 
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     aux_model = MLP().to(device)

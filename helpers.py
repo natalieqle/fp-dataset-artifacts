@@ -33,13 +33,14 @@ def prepare_dataset_nli(examples, tokenizer, max_seq_length=None):
 
 # This function computes sentence-classification accuracy.
 # Functions with signatures like this one work as the "compute_metrics" argument of transformers.Trainer.
-def compute_accuracy(eval_preds: EvalPrediction):
-    return {
-        'accuracy': (np.argmax(
-            eval_preds.predictions,
-            axis=1) == eval_preds.label_ids).astype(
-            np.float32).mean().item()
-    }
+def compute_accuracy(eval_preds: EvalPrediction, dataset: str):
+  preds = np.argmax(eval_preds.predictions, axis=1)
+  if dataset == "hans":
+    preds = [1 if x != 0 else 0 for x in preds]
+  return {
+      'accuracy': (preds == eval_preds.label_ids).astype(
+          np.float32).mean().item()
+  }
 
 
 # This function preprocesses a question answering dataset, tokenizing the question and context text
@@ -320,7 +321,7 @@ class QuestionAnsweringTrainer(Trainer):
         return metrics
 
 class MLP(torch.nn.Module):
-    def __init__(self, num_units_hidden=256):
+    def __init__(self, num_units_hidden=128):
         super().__init__()
         self.seq = torch.nn.Sequential(
             torch.nn.Linear(128, num_units_hidden),
