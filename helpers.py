@@ -328,9 +328,9 @@ class MLP(torch.nn.Module):
             torch.nn.Tanh(),
             torch.nn.Linear(num_units_hidden, num_units_hidden),
             torch.nn.Tanh(),
-            torch.nn.Linear(num_units_hidden, 1),
-            torch.nn.Sigmoid(),
+            torch.nn.Linear(num_units_hidden, 1)
         )
+        self.sig = torch.nn.Sigmoid()
 
     def forward(self, X):
       # print(f'length: {X.keys()}')
@@ -339,8 +339,7 @@ class MLP(torch.nn.Module):
       # print(f'input args: {X}')
       # print(f'tensor type: {X["input_ids"].type()}')
       res = self.seq(X["input_ids"].float())
-      # print(f'res: {res}')
-      return res
+      return self.sig((1 / torch.mean(res).item()) * res)
 
 class AuxiliaryModelWrapper:
     def __init__(self, model: MLP):
