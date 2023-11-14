@@ -417,7 +417,7 @@ class MinimaxElectraTrainer(Trainer):
         # aux_preds = torch.squeeze(self.aux_wrapper.predict(inputs))
         # print(f'aux_preds_size: {aux_preds.size()}')
         if self.is_train:
-          # print('is updating aux...')
+          print('is updating aux...')
           weights = self.aux_wrapper.predict_and_update(inputs, loss.detach().clone()) #.requires_grad_())
           loss = loss * torch.squeeze(weights)
         loss = loss.mean()
