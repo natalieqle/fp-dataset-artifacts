@@ -321,7 +321,7 @@ class QuestionAnsweringTrainer(Trainer):
         return metrics
 
 class MLP(torch.nn.Module):
-    def __init__(self, num_units_hidden=128):
+    def __init__(self, num_units_hidden=256):
         super().__init__()
         self.seq = torch.nn.Sequential(
             torch.nn.Linear(128, num_units_hidden),
