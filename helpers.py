@@ -361,14 +361,14 @@ class AuxiliaryModelWrapper:
         # print(f'loss_clone: {loss_clone}')
         preds = self.model(inputs)
         self.model.zero_grad()
-        weights = preds + torch.ones(preds.size()).to(preds.device).requires_grad_()
+        weights = (preds + torch.ones(preds.size()).to(preds.device))
         loss = (weights * loss_clone).mean() * -1
         # print('added constant...')
         loss.backward()
         self.optimizer.step()
         # print('done updated aux...')
         self.save_model()
-        return weights.detach().clone().requires_grad_()
+        return weights.detach().clone()
 
     def save_model(self):
         # print('saving model...')
@@ -418,7 +418,7 @@ class MinimaxElectraTrainer(Trainer):
         # print(f'aux_preds_size: {aux_preds.size()}')
         if self.is_train:
           print('is updating aux...')
-          weights = self.aux_wrapper.predict_and_update(inputs, loss.detach().clone().requires_grad_()) #.requires_grad_())
+          weights = self.aux_wrapper.predict_and_update(inputs, loss.detach().clone()) #.requires_grad_())
           loss = loss * torch.squeeze(weights)
         loss = loss.mean()
         # print(f'loss w/ weighted: {loss}')
