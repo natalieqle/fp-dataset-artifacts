@@ -1,15 +1,10 @@
 import numpy as np
 import collections
-# from collections import defaultdict, OrderedDict
 
 from transformers import Trainer, EvalPrediction
-# from transformers.trainer_pt_utils import smp_forward_backward
-# from transformers.trainer_utils import PredictionOutput
 from typing import Tuple, Union, Dict, Any
 from tqdm.auto import tqdm
 import torch
-# from transformers.utils import is_sagemaker_mp_enabled
-# from apex import amp
 from os import path
 
 QA_MAX_ANSWER_LENGTH = 30
@@ -333,11 +328,6 @@ class MLP(torch.nn.Module):
         self.sig = torch.nn.Sigmoid()
 
     def forward(self, X):
-      # print(f'length: {X.keys()}')
-      # print(f'input_ids: {X["input_ids"].size()}')
-      # print(f'is_fast: {X.is_fast}')
-      # print(f'input args: {X}')
-      # print(f'tensor type: {X["input_ids"].type()}')
       res = self.seq(X["input_ids"].float())
       return self.sig((1 / torch.mean(res).item()) * res)
 
@@ -346,32 +336,17 @@ class AuxiliaryModelWrapper:
         self.model = model
         self.optimizer = torch.optim.Adam(self.model.parameters())
 
-    def predict(self, inputs):
-        return self.model(inputs)
-
-    def update(self, weighted_loss_clone):
-        print(f'weighted_loss_clone: {weighted_loss_clone}')
-        self.model.zero_grad()
-        loss = weighted_loss_clone * -1
-        loss.backward()
-        self.optimizer.step()
-        print('done updated aux...')
-
     def predict_and_update(self, inputs, loss_clone):
-        # print(f'loss_clone: {loss_clone}')
         preds = self.model(inputs)
         self.model.zero_grad()
         weights = (preds + torch.ones(preds.size()).to(preds.device))
         loss = (weights * loss_clone).mean() * -1
-        # print('added constant...')
         loss.backward()
         self.optimizer.step()
-        # print('done updated aux...')
         self.save_model()
         return weights.detach().clone()
 
     def save_model(self):
-        # print('saving model...')
         torch.save(self.model.state_dict(), path.join(path.dirname(path.abspath(__file__)), 'mlp.th'))
 
 class MinimaxElectraTrainer(Trainer):
@@ -380,50 +355,14 @@ class MinimaxElectraTrainer(Trainer):
         self.aux_wrapper = aux_wrapper
         self.is_train = is_train
 
-    # def training_step(self, model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:
-    #     model.train()
-    #     inputs = self._prepare_inputs(inputs)
-    #
-    #     if is_sagemaker_mp_enabled():
-    #         loss_mb = smp_forward_backward(model, inputs, self.args.gradient_accumulation_steps)
-    #         return loss_mb.reduce_mean().detach().to(self.args.device)
-    #
-    #     with self.compute_loss_context_manager():
-    #         loss = self.compute_loss(model, inputs) * self.aux_wrapper.predict(inputs)
-    #         self.aux_wrapper.update(loss.clone())
-    #
-    #     if self.args.n_gpu > 1:
-    #         loss = loss.mean()  # mean() to average on multi-gpu parallel training
-    #
-    #     if self.use_apex:
-    #         with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-    #             scaled_loss.backward()
-    #     else:
-    #         self.accelerator.backward(loss)
-    #
-    #     return loss.detach() / self.args.gradient_accumulation_steps
-
     def compute_loss(self, model, inputs, return_outputs=False):
         labels = inputs.pop("labels")
-        # forward pass
         outputs = model(**inputs)
         logits = outputs.get("logits")
         loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
-        # print(f'labels.view(-1): {labels.view(-1)}')
-        # print(f'logits.view(-1, self.model.config.num_labels): {logits.view(-1, self.model.config.num_labels)}')
         loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
-        # print(f'loss: {loss}')
-        # print(f'loss_size: {loss.size()}')
-        # aux_preds = torch.squeeze(self.aux_wrapper.predict(inputs))
-        # print(f'aux_preds_size: {aux_preds.size()}')
         if self.is_train:
-          print('is updating aux...')
           weights = self.aux_wrapper.predict_and_update(inputs, loss.detach().clone()) #.requires_grad_())
           loss = loss * torch.squeeze(weights)
         loss = loss.mean()
-        # print(f'loss w/ weighted: {loss}')
-        # print(f'loss_size w/ weighted: {loss.size()}')
-        # self.aux_wrapper.update(loss.detach().clone().requires_grad_())
-        # print(f'loss w/ weighted: {loss}')
-        # print('returning loss!')
         return (loss, outputs) if return_outputs else loss
