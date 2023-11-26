@@ -111,6 +111,9 @@ def compare(pretrained_path: str, dev_path: str, binary: bool):
     improved_rows = []
     columns = ['premise', 'hypothesis', 'gold', 'dev_pred', 'pretrained_pred']
 
+    if binary:
+        columns.append('heuristic')
+
     pretained_res = {}
     pretrained_pred_label = {}
 
@@ -139,6 +142,9 @@ def compare(pretrained_path: str, dev_path: str, binary: bool):
         pt_res = pretained_res[key]
         if dev_res != pt_res:
             row = [p["premise"], p["hypothesis"], gold_label, pred_label, pretrained_pred_label[key]]
+            if binary:
+                row.append(p["heuristic"])
+
             if dev_res == 'CORRECT':
                 improved_rows.append(row)
             else:
@@ -170,10 +176,10 @@ def compare(pretrained_path: str, dev_path: str, binary: bool):
 
 if __name__ == "__main__":
     # compare(pretrained_path='pretrained_eval/snli/', dev_path='minimax_trained_eval/no_grad_256/final/snli/', binary=False)
-    # compare(pretrained_path='pretrained_eval/hans/', dev_path='minimax_trained_eval/no_grad_256/final/hans/', binary=True)
+    compare(pretrained_path='pretrained_eval/hans/', dev_path='minimax_trained_eval/no_grad_256/final/hans/', binary=True)
     # compare(pretrained_path='pretrained_eval/lit_only/', dev_path='minimax_trained_eval/no_grad_256/final/lit_only/', binary=False)
     # compare(pretrained_path='pretrained_eval/anli/test_r1/', dev_path='minimax_trained_eval/no_grad_256/final/anli/test_r1/', binary=False)
     # compare(pretrained_path='pretrained_eval/anli/test_r2/', dev_path='minimax_trained_eval/no_grad_256/final/anli/test_r2/', binary=False)
     # compare(pretrained_path='pretrained_eval/anli/test_r3/', dev_path='minimax_trained_eval/no_grad_256/final/anli/test_r3/', binary=False)
-    eval_lit_only(eval_csv="multi_improved.csv", output_prefix="improved")
-    eval_lit_only(eval_csv="multi_degraded.csv", output_prefix="degraded")
+    # eval_lit_only(eval_csv="multi_improved.csv", output_prefix="improved")
+    # eval_lit_only(eval_csv="multi_degraded.csv", output_prefix="degraded")
