@@ -31,9 +31,10 @@ def preprocess_lit():
     print(f'skipped {skipped_original} examples, total is {len(rows)}')
     print(f'entailed: {num_entailed}, neutral: {num_neutral}, contradiction: {num_contr}')
 
-    with open("/Users/Natalie/Downloads/modified_test_2.json", "w") as outfile:
+    with open("/Users/Natalie/Downloads/lit_only_2.json", "w") as outfile:
         for row in rows:
             dictionary = {
+                "caption": row[0],
                 "premise": row[1],
                 "hypothesis": row[2],
                 "label": row[3]
@@ -64,6 +65,7 @@ def eval_lit_only(eval_csv: str, output_prefix: str):
         it_cleft = 0
         future_simple = 0
         past_simple = 0
+        passive = 0
 
         for row in csvreader:
             caption = caption_map[f'{row[0]}{row[1]}']
@@ -80,6 +82,9 @@ def eval_lit_only(eval_csv: str, output_prefix: str):
             if "past simple" in caption:
                 past_simple += 1
                 processed_caption += "PAST SIMPLE."
+            if "passive" in caption:
+                passive += 1
+                processed_caption += "PASSIVE."
             rows.append([row[0], row[1], row[2], row[3], processed_caption, caption])
 
 
@@ -91,7 +96,7 @@ def eval_lit_only(eval_csv: str, output_prefix: str):
     for i in range(3):
         print(rows[i])
 
-    print(f'may: {may}, it cleft: {it_cleft}, future simple: {future_simple}, past simple: {past_simple}')
+    print(f'may: {may}, it cleft: {it_cleft}, future simple: {future_simple}, past simple: {past_simple}, passive: {passive}')
 
 def compare(pretrained_path: str, dev_path: str, binary: bool):
     base = '/Users/Natalie/Desktop/Final_Project_NLP/fp-dataset-artifacts/'
@@ -114,8 +119,41 @@ def compare(pretrained_path: str, dev_path: str, binary: bool):
     if binary:
         columns.append('heuristic')
 
+    if 'anli' in pretrained_path:
+        columns.append('reason')
+
     pretained_res = {}
     pretrained_pred_label = {}
+
+    num_pretrained_lex = 0
+    num_pretrained_const = 0
+    num_pretrained_sub = 0
+
+    num_dev_lex = 0
+    num_dev_const = 0
+    num_dev_sub = 0
+
+    pretrained_may = 0
+    pretrained_it_cleft = 0
+    pretrained_future_simple = 0
+    pretrained_past_simple = 0
+    pretrained_passive = 0
+
+    dev_may = 0
+    dev_it_cleft = 0
+    dev_future_simple = 0
+    dev_past_simple = 0
+    dev_passive = 0
+
+    gold_entailed_but_dev_neutral = 0
+    gold_entailed_but_dev_contradiction = 0
+    gold_neutral_but_dev_entailed = 0
+    gold_neutral_but_dev_contradiction = 0
+    gold_contradiction_but_dev_entailed = 0
+    gold_contradiction_but_dev_neutral = 0
+
+    false_positive = 0
+    false_negative = 0
 
     for pred in pretrained_preds:
         p = json.loads(pred)
@@ -127,6 +165,56 @@ def compare(pretrained_path: str, dev_path: str, binary: bool):
             pretained_res[key] = 'CORRECT'
         else:
             pretained_res[key] = 'INCORRECT'
+            if gold_label == "contradiction":
+                if pred_label == "entailment":
+                    gold_contradiction_but_dev_entailed += 1
+                else:
+                    gold_contradiction_but_dev_neutral += 1
+            if gold_label == "entailment":
+                if pred_label == "contradiction":
+                    gold_entailed_but_dev_contradiction += 1
+                else:
+                    gold_entailed_but_dev_neutral += 1
+            if gold_label == "neutral":
+                if pred_label == "entailment":
+                    gold_neutral_but_dev_entailed += 1
+                else:
+                    gold_neutral_but_dev_contradiction += 1
+            if "heuristic" in p.keys():
+                heur = p["heuristic"]
+                if heur == 'lexical_overlap':
+                    num_pretrained_lex += 1
+                elif heur == 'constituent':
+                    num_pretrained_const += 1
+                elif heur == 'subsequence':
+                    num_pretrained_sub += 1
+            if "caption" in p.keys():
+                caption = p["caption"]
+                if "may" in caption:
+                    pretrained_may += 1
+                if "it cleft" in caption:
+                    pretrained_it_cleft += 1
+                if "future simple" in caption:
+                    pretrained_future_simple += 1
+                if "past simple" in caption:
+                    pretrained_past_simple += 1
+                if "passive" in caption:
+                    pretrained_passive += 1
+
+    print('PRETRAINED')
+    print(
+        f'gold_entailed_but_dev_contradiction: {gold_entailed_but_dev_contradiction}, gold_entailed_but_dev_neutral: {gold_entailed_but_dev_neutral}')
+    print(
+        f'gold_neutral_but_dev_contradiction: {gold_neutral_but_dev_contradiction}, gold_neutral_but_dev_entailed: {gold_neutral_but_dev_entailed}')
+    print(
+        f'gold_contradiction_but_dev_neutral: {gold_contradiction_but_dev_neutral}, gold_contradiction_but_dev_entailed: {gold_contradiction_but_dev_entailed}')
+
+    gold_entailed_but_dev_neutral = 0
+    gold_entailed_but_dev_contradiction = 0
+    gold_neutral_but_dev_entailed = 0
+    gold_neutral_but_dev_contradiction = 0
+    gold_contradiction_but_dev_entailed = 0
+    gold_contradiction_but_dev_neutral = 0
 
     for pred in dev_preds:
         p = json.loads(pred)
@@ -137,13 +225,54 @@ def compare(pretrained_path: str, dev_path: str, binary: bool):
             dev_res = 'CORRECT'
         else:
             dev_res = 'INCORRECT'
+            if pred_label == 'not entailed':
+                false_negative += 1
+            else:
+                false_positive += 1
+            if gold_label == "contradiction":
+                if pred_label == "entailment":
+                    gold_contradiction_but_dev_entailed += 1
+                else:
+                    gold_contradiction_but_dev_neutral += 1
+            if gold_label == "entailment":
+                if pred_label == "contradiction":
+                    gold_entailed_but_dev_contradiction += 1
+                else:
+                    gold_entailed_but_dev_neutral += 1
+            if gold_label == "neutral":
+                if pred_label == "entailment":
+                    gold_neutral_but_dev_entailed += 1
+                else:
+                    gold_neutral_but_dev_contradiction += 1
+            if "heuristic" in p.keys():
+                heur = p["heuristic"]
+                if heur == 'lexical_overlap':
+                    num_dev_lex += 1
+                elif heur == 'constituent':
+                    num_dev_const += 1
+                elif heur == 'subsequence':
+                    num_dev_sub += 1
+            if "caption" in p.keys():
+                caption = p["caption"]
+                if "may" in caption:
+                    dev_may += 1
+                if "it cleft" in caption:
+                    dev_it_cleft += 1
+                if "future simple" in caption:
+                    dev_future_simple += 1
+                if "past simple" in caption:
+                    dev_past_simple += 1
+                if "passive" in caption:
+                    dev_passive += 1
 
         key = f'{p["premise"]}{p["hypothesis"]}'
         pt_res = pretained_res[key]
         if dev_res != pt_res:
             row = [p["premise"], p["hypothesis"], gold_label, pred_label, pretrained_pred_label[key]]
-            if binary:
+            if "heuristic" in p.keys():
                 row.append(p["heuristic"])
+            if 'anli' in pretrained_path:
+                row.append(p["reason"])
 
             if dev_res == 'CORRECT':
                 improved_rows.append(row)
@@ -161,6 +290,21 @@ def compare(pretrained_path: str, dev_path: str, binary: bool):
             csvwriter.writerow(columns)
             csvwriter.writerows(degraded_rows)
 
+    print('DEV')
+    print(f'false positive: {false_positive}, false negative: {false_negative}')
+    print(
+        f'gold_entailed_but_dev_contradiction: {gold_entailed_but_dev_contradiction}, gold_entailed_but_dev_neutral: {gold_entailed_but_dev_neutral}')
+    print(
+        f'gold_neutral_but_dev_contradiction: {gold_neutral_but_dev_contradiction}, gold_neutral_but_dev_entailed: {gold_neutral_but_dev_entailed}')
+    print(
+        f'gold_contradiction_but_dev_neutral: {gold_contradiction_but_dev_neutral}, gold_contradiction_but_dev_entailed: {gold_contradiction_but_dev_entailed}')
+
+    print(f'PRETRAINED. lex: {num_pretrained_lex}, sub: {num_pretrained_sub}, const: {num_pretrained_const}')
+    print(f'DEV. lex: {num_dev_lex}, sub: {num_dev_sub}, const: {num_dev_const}')
+
+    print(f'PRETRAINED. may: {pretrained_may}, it cleft: {pretrained_it_cleft}, future simple: {pretrained_future_simple}, past simple: {pretrained_past_simple}, passive: {pretrained_passive}')
+    print(f'DEV. may: {dev_may}, it cleft: {dev_it_cleft}, future simple: {dev_future_simple}, past simple: {dev_past_simple}, passive: {dev_passive}')
+
     print(f'stats for: {pretrained_path}')
     num_improved = len(improved_rows)
     print(f'improved: {num_improved}')
@@ -175,11 +319,10 @@ def compare(pretrained_path: str, dev_path: str, binary: bool):
             print(degraded_rows[i])
 
 if __name__ == "__main__":
-    # compare(pretrained_path='pretrained_eval/snli/', dev_path='minimax_trained_eval/no_grad_256/final/snli/', binary=False)
+    # preprocess_lit();
+    compare(pretrained_path='pretrained_eval/snli/', dev_path='minimax_trained_eval/no_grad_256/final/snli/', binary=False)
     compare(pretrained_path='pretrained_eval/hans/', dev_path='minimax_trained_eval/no_grad_256/final/hans/', binary=True)
-    # compare(pretrained_path='pretrained_eval/lit_only/', dev_path='minimax_trained_eval/no_grad_256/final/lit_only/', binary=False)
-    # compare(pretrained_path='pretrained_eval/anli/test_r1/', dev_path='minimax_trained_eval/no_grad_256/final/anli/test_r1/', binary=False)
-    # compare(pretrained_path='pretrained_eval/anli/test_r2/', dev_path='minimax_trained_eval/no_grad_256/final/anli/test_r2/', binary=False)
-    # compare(pretrained_path='pretrained_eval/anli/test_r3/', dev_path='minimax_trained_eval/no_grad_256/final/anli/test_r3/', binary=False)
-    # eval_lit_only(eval_csv="multi_improved.csv", output_prefix="improved")
-    # eval_lit_only(eval_csv="multi_degraded.csv", output_prefix="degraded")
+    compare(pretrained_path='pretrained_eval/lit_only/', dev_path='minimax_trained_eval/no_grad_256/final/lit_only/', binary=False)
+    compare(pretrained_path='pretrained_eval/anli/test_r3/', dev_path='minimax_trained_eval/no_grad_256/final/anli/test_r3/', binary=False)
+    eval_lit_only(eval_csv="multi_improved.csv", output_prefix="improved")
+    eval_lit_only(eval_csv="multi_degraded.csv", output_prefix="degraded")
