@@ -31,7 +31,7 @@ def preprocess_lit():
     print(f'skipped {skipped_original} examples, total is {len(rows)}')
     print(f'entailed: {num_entailed}, neutral: {num_neutral}, contradiction: {num_contr}')
 
-    with open("/Users/Natalie/Downloads/lit_only_2.json", "w") as outfile:
+    with open("/Users/Natalie/Downloads/lit_only.json", "w") as outfile:
         for row in rows:
             dictionary = {
                 "caption": row[0],
@@ -44,7 +44,7 @@ def preprocess_lit():
 
 def eval_lit_only(eval_csv: str, output_prefix: str):
     base = '/Users/Natalie/Desktop/Final_Project_NLP/fp-dataset-artifacts/'
-    dev_path = base + 'minimax_trained_eval/no_grad_256/final/lit_only/'
+    dev_path = base + 'minimax_trained_eval/lit_only/'
 
     caption_map = {}
     with open(base + 'data/all_eval_data.csv', 'r') as file:
@@ -320,9 +320,9 @@ def compare(pretrained_path: str, dev_path: str, binary: bool):
 
 if __name__ == "__main__":
     # preprocess_lit();
-    compare(pretrained_path='pretrained_eval/snli/', dev_path='minimax_trained_eval/no_grad_256/final/snli/', binary=False)
-    compare(pretrained_path='pretrained_eval/hans/', dev_path='minimax_trained_eval/no_grad_256/final/hans/', binary=True)
-    compare(pretrained_path='pretrained_eval/lit_only/', dev_path='minimax_trained_eval/no_grad_256/final/lit_only/', binary=False)
-    compare(pretrained_path='pretrained_eval/anli/test_r3/', dev_path='minimax_trained_eval/no_grad_256/final/anli/test_r3/', binary=False)
+    compare(pretrained_path='pretrained_eval/snli/', dev_path='minimax_trained_eval/snli/', binary=False)
+    compare(pretrained_path='pretrained_eval/hans/', dev_path='minimax_trained_eval/hans/', binary=True)
+    compare(pretrained_path='pretrained_eval/lit_only/', dev_path='minimax_trained_eval/lit_only/', binary=False)
+    compare(pretrained_path='pretrained_eval/anli/test_r3/', dev_path='minimax_trained_eval/anli/test_r3/', binary=False)
     eval_lit_only(eval_csv="multi_improved.csv", output_prefix="improved")
     eval_lit_only(eval_csv="multi_degraded.csv", output_prefix="degraded")
